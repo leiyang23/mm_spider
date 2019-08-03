@@ -17,10 +17,9 @@ class MeiSpider:
     """妹子图全站下载
     使用说明：1.初始化数据库 2.将所有图片信息爬取到数据库 3.根据数据库信息下载图片到本地
 
-
     """
 
-    def __init__(self, req_cor_num: int = 1, dl_cor_num: int = 5):
+    def __init__(self, db_path, req_cor_num: int = 1, dl_cor_num: int = 5):
 
         # 下载图片时开启的协程数
         if dl_cor_num >= 30:
@@ -38,15 +37,15 @@ class MeiSpider:
 
         # 文件存放路径
         self.file_path = "/mm_images"
+        self.db_path = db_path
         self.session = None
         self._init_conn_db()
 
     def _init_conn_db(self):
         """初始化连接数据库"""
-        db_path = "///../meizitu.db"
 
         try:
-            engine = create_engine(f"sqlite:{db_path}", echo=False)
+            engine = create_engine(f"sqlite:{self.db_path}", echo=False)
             db_session = sessionmaker(bind=engine)
             self.session = db_session()
             # 创建表（如果表已经存在，则不会创建）
@@ -364,7 +363,7 @@ class MeiSpider:
 
 
 if __name__ == "__main__":
-    spider = MeiSpider(dl_cor_num=8)
+    spider = MeiSpider(db_path="///../meizitu.db", dl_cor_num=8)
     # 获取信息到数据库
     spider.save2db()
     # 对于获取合集信息失败的进行补录
