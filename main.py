@@ -13,8 +13,8 @@ spider = MeiSpider()
 spider.save2db()
 
 # 对于获取信息失败的合集进行补录
-for i in range(1, 4):
-    print(f"第{i}次补录开始...")
+for i in range(3):
+    print(f"第{i+1}次补录开始...")
     spider.re_get_error_collection_to_db()
     print("补录完毕")
 
