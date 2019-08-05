@@ -14,20 +14,6 @@ from sqlalchemy.orm import sessionmaker
 from db.models import Collection, Tag, Image, base, DownloadRecord
 
 logger = logging.getLogger("logger")
-logger.setLevel(logging.DEBUG)
-
-file_handler = logging.FileHandler("err_log.log")
-file_handler.setLevel(logging.ERROR)
-
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.DEBUG)
-
-formatter_console = logging.Formatter("%(levelname)s - %(lineno)s - %(message)s")
-formatter_file = logging.Formatter("%(asctime)s - %(levelname)s - %(lineno)s - %(message)s")
-console_handler.setFormatter(formatter_console)
-file_handler.setFormatter(formatter_file)
-
-logger.addHandler(console_handler)
 
 
 class MeiSpider:
