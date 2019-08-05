@@ -3,6 +3,7 @@ import re
 import random
 import asyncio
 import aiohttp
+import logging
 import requests
 
 from lxml import etree
@@ -11,6 +12,22 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from db.models import Collection, Tag, Image, base, DownloadRecord
+
+logger = logging.getLogger("logger")
+logger.setLevel(logging.DEBUG)
+
+file_handler = logging.FileHandler("err_log.log")
+file_handler.setLevel(logging.ERROR)
+
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+
+formatter_console = logging.Formatter("%(levelname)s - %(lineno)s - %(message)s")
+formatter_file = logging.Formatter("%(asctime)s - %(levelname)s - %(lineno)s - %(message)s")
+console_handler.setFormatter(formatter_console)
+file_handler.setFormatter(formatter_file)
+
+logger.addHandler(console_handler)
 
 
 class MeiSpider:
@@ -23,14 +40,14 @@ class MeiSpider:
 
         # 下载图片时开启的协程数
         if dl_cor_num >= 30:
-            print("爬亦有道，下载最大只能为 30.")
+            logger.warning("爬亦有道，下载最大只能为 30.")
             self.dl_cor_num = 30
         else:
             self.dl_cor_num = dl_cor_num
 
         # 进行网页获取时开启的协程数
         if req_cor_num >= 50:
-            print("爬亦有道，最大只能为 50.")
+            logger.warning("爬亦有道，下载最大只能为 30.")
             self.req_cor_num = 50
         else:
             self.req_cor_num = req_cor_num
@@ -50,12 +67,12 @@ class MeiSpider:
             self.session = db_session()
             # 创建表（如果表已经存在，则不会创建）
             base.metadata.create_all(engine)
-            print("初始化连接数据库完毕")
+            logger.info("初始化连接数据库完毕")
         except ImportError as e:
             if e.name == '_sqlite3':
-                print(f"执行 yum install sqlite-devel，之后重新编译安装Python")
+                logger.error(f"执行 yum install sqlite-devel，之后重新编译安装Python")
             else:
-                print(f"请检查是否安装此模块：{e.name}")
+                logger.error(f"请检查是否安装此模块：{e.name}")
             exit()
 
     def _insert_collection_data_to_db(self, collection_data: tuple, collection_num=''):
@@ -107,13 +124,13 @@ class MeiSpider:
         """
         collection_nums = self.get_all_collection_num()
         if collection_nums is None:
-            print("未能获取当前最新数据")
+            logger.warning("未能获取当前最新数据")
             return None
 
         dl_records = self.session.query(DownloadRecord).filter_by()
         count = 0
         if dl_records.count() > 2000:  # 下载记录表记录大于2000 说明此时要更新
-            print("更新中···")
+            logger.info("更新中···")
             for collection_num in collection_nums:
                 # 若已存在，跳过
                 if self.session.query(DownloadRecord).filter_by(collection_num=collection_num).count() > 0:
@@ -129,7 +146,7 @@ class MeiSpider:
                     self.session.flush()
             self.session.commit()
         else:  # 少于 2000，进行初始化
-            print("初始化数据···")
+            logger.info("初始化数据···")
             self.session.query(DownloadRecord).filter_by().delete()
             self.session.query(Tag).filter_by().delete()
             self.session.query(Image).filter_by().delete()
@@ -142,13 +159,13 @@ class MeiSpider:
         """  进行合集的基本信息收录"""
         while True:
             collection_num = await queue.get()
-            print(f"{collection_num}开始。。")
+            logger.debug(f"{collection_num}开始。。")
             res = await self.get_collection_base_data(collection_num)
             if res is None:  # 获取合集基本信息失败
                 queue.task_done()
                 continue
             self._insert_collection_data_to_db(res, collection_num=collection_num)
-            print(f"{collection_num}结束。。")
+            logger.debug(f"{collection_num}结束。。")
             queue.task_done()
 
     async def _main_save2db(self):
@@ -163,7 +180,7 @@ class MeiSpider:
 
         for dl_record in dl_records:
             queue.put_nowait(dl_record.collection_num)
-        print("炮弹装填完毕")
+        logger.debug("炮弹装填完毕")
 
         tasks = []
         for _ in range(self.req_cor_num):
@@ -173,7 +190,7 @@ class MeiSpider:
         for t in tasks:
             t.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
-        print("合集信息已全部写入数据库")
+        logger.info("合集信息已全部写入数据库")
 
     async def _re_get_error_collection_to_db(self):
         """ 对于已收录但未进行基本数据收集的合集进行补录"""
@@ -181,7 +198,7 @@ class MeiSpider:
         for collection in error_collections:
             res = await self.get_collection_base_data(collection.collection_num)
             if res is None:
-                print(f"合集{collection.collection_num}存在问题，跳过")
+                logger.warning(f"合集{collection.collection_num}存在问题，跳过")
                 continue
             self._insert_collection_data_to_db(res, collection_num=collection.collection_num)
 
@@ -192,7 +209,7 @@ class MeiSpider:
 
         for dl_record in dl_records:
             if dl_record.status == 0:
-                print(f"此合集{dl_record.collection_num}基本信息还未收录")
+                logger.info(f"此合集{dl_record.collection_num}基本信息还未收录")
                 continue
             collection = self.session.query(Collection).filter_by(collection_num=dl_record.collection_num).first()
 
@@ -213,7 +230,7 @@ class MeiSpider:
             images = self.session.query(Image).filter_by(collection_num=dl_record.collection_num)
             for j in images:
                 queue.put_nowait((img_path, j.meizitu_url))
-        print("炮弹装填完毕")
+        logger.debug("炮弹装填完毕")
 
         tasks = []
         for _ in range(self.dl_cor_num):
@@ -226,7 +243,7 @@ class MeiSpider:
             t.cancel()
 
         await asyncio.gather(*tasks, return_exceptions=True)
-        print("图片下载完毕")
+        logger.info("图片下载完毕")
 
     def save2db(self):
         """ 获取当前的合集数，进行增量添加"""
@@ -241,7 +258,7 @@ class MeiSpider:
 
         if not os.path.exists(file_path):
             os.mkdir(file_path)
-            print("指定路径不存在，已经新建文件夹")
+            logger.warning("指定路径不存在，已经新建文件夹")
         self.file_path = file_path  # 图片存放的路径：绝对路径
 
         collections = self.session.query(Collection).filter_by()
@@ -260,12 +277,12 @@ class MeiSpider:
             name = img_url.split("/")[-1]
             async with aiohttp.ClientSession(headers=MeiSpider.get_headers()) as session:
                 async with session.get(img_url) as resp:
-                    print(img_url)
+                    logger.debug(img_url)
                     if resp.status != 200:
-                        print(f"error：下载限制，请更换IP地址,状态码：{resp.status}")
+                        logger.warning(f"error：下载限制，请更换IP地址,状态码：{resp.status}")
                         queue.task_done()
                         continue
-                    print(img_path + "/" + name)
+                    logger.debug(img_path + "/" + name)
                     with open(img_path + "/" + name, 'wb') as fd:
                         while True:
                             chunk = await resp.content.read(1024)
@@ -281,7 +298,7 @@ class MeiSpider:
 
         res = requests.get(init_url, headers=MeiSpider.get_headers())
         if res.status_code != 200:
-            print(f"请求合集目录页失败，状态码：{res.status_code}")
+            logger.warning(f"请求合集目录页失败，状态码：{res.status_code}")
             return None
         html = etree.HTML(res.text)
         collection_urls = html.xpath("//div[@class='all']//a/@href")
@@ -297,7 +314,7 @@ class MeiSpider:
         async with aiohttp.ClientSession(headers=MeiSpider.get_headers_1()) as session:
             async with session.get(collection_url) as resp:
                 if resp.status != 200:
-                    print(f"error：获取合集{collection_num}失败，状态码：{resp.status}")
+                    logger.warning(f"error：获取合集{collection_num}失败，状态码：{resp.status}")
                     return None
 
                 text = await resp.text()
@@ -368,9 +385,9 @@ if __name__ == "__main__":
     spider.save2db()
     # 对于获取合集信息失败的进行补录
     for i in range(1, 4):
-        print(f"第{i}次补录开始...")
+        logger.info(f"第{i}次补录开始...")
         spider.re_get_error_collection_to_db()
-        print("补录完毕")
+        logger.info("补录完毕")
     # 将合集下载到本地
-    print("稍后将开始下载...")
+    logger.info("稍后将开始下载...")
     spider.save2local(file_path="I:/mmtu")
