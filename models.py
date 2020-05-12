@@ -27,22 +27,13 @@ class Collection(base):
     collection_num = Column("collection_num", String(15), )
     name = Column("name", String(100))
     total_num = Column("image_num", Integer)
-    tags = relationship("Tag", secondary=collection_tag)
-
-
-class Image(base):
-    """ 图片 """
-    __tablename__ = "image"
-
-    image_id = Column("image_id", Integer, primary_key=True, autoincrement=True)
     year = Column("year", String(6))
     month = Column("month", String(6))
     day = Column("day", String(6))
-    width = Column("width", Integer)
-    height = Column("height", Integer)
-    meizitu_url = Column("meizitu_url", String(100))
+    url_prefix = Column("url_prefix", String(100))  # 妹子图资源地址前缀，和图片数量进行结合即可拼接出地址。
+    url_suffix = Column("url_suffix", String(50))
 
-    collection_num = Column("collection_num", String(15), ForeignKey("collection.collection_num"))
+    tags = relationship("Tag", secondary=collection_tag)
 
 
 class DownloadRecord(base):
