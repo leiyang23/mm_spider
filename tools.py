@@ -78,51 +78,51 @@ def get_headers_1() -> dict:
     return random.choice(headers)
 
 
-async def get_collection_base_data(collection_num) -> Union[dict, None]:
+async def get_collection_base_data(http_session, collection_num) -> Union[dict, None]:
     """ 异步获取合集的基础信息 """
     await asyncio.sleep(random.uniform(.5, 1.5))
     collection_url = f"https://www.mzitu.com/{collection_num}"
     logger.debug(f"合集地址：{collection_url}")
-    async with aiohttp.ClientSession(headers=get_headers_1()) as session:
-        async with session.get(collection_url) as resp:
-            logger.debug(resp.status)
-            if resp.status != 200:
-                logger.warning(f"error：获取合集{collection_num}失败，状态码：{resp.status}")
-                if resp.status == 429:
-                    logger.info(f"触发网站反爬机制，睡眠10秒")
-                    await asyncio.sleep(10)
-                return None
 
-            text = await resp.text()
-            html = etree.HTML(text)
-            tag_names = html.xpath("//div[@class='main-tags']/a/text()")
-            total_num = html.xpath("//div[@class='pagenavi']/a[last()-1]/span/text()")[0]
-            name = html.xpath("//h2[@class='main-title']/text()")[0]
+    async with http_session.get(collection_url) as resp:
+        logger.debug(resp.status)
+        if resp.status != 200:
+            logger.warning(f"error：获取合集{collection_num}失败，状态码：{resp.status}")
+            if resp.status == 429:
+                logger.info(f"触发网站反爬机制，睡眠10秒")
+                await asyncio.sleep(10)
+            return None
 
-            img_first_url = html.xpath("//div[@class='main-image']/p/a/img/@src")[0]
+        text = await resp.text()
+        html = etree.HTML(text)
+        tag_names = html.xpath("//div[@class='main-tags']/a/text()")
+        total_num = html.xpath("//div[@class='pagenavi']/a[last()-1]/span/text()")[0]
+        name = html.xpath("//h2[@class='main-title']/text()")[0]
 
-            splits_1 = os.path.split(img_first_url)
-            url_prefix = splits_1[0] + "/" + splits_1[1][:3]
-            url_suffix = splits_1[1][5:]
+        img_first_url = html.xpath("//div[@class='main-image']/p/a/img/@src")[0]
 
-            splits_2 = img_first_url.split("/")
-            year = splits_2[3]
-            month = splits_2[4]
-            day = splits_2[5][:2]
+        splits_1 = os.path.split(img_first_url)
+        url_prefix = splits_1[0] + "/" + splits_1[1][:3]
+        url_suffix = splits_1[1][5:]
 
-            res = {
-                "collection_num": collection_num,
-                "name": name,
-                "total_num": total_num,
-                "year": year,
-                "month": month,
-                "day": day,
-                "url_prefix": url_prefix,
-                "url_suffix": url_suffix,
-                "tag_names": tag_names,
-            }
-            logger.debug(f"合集信息：{res}")
-            return res
+        splits_2 = img_first_url.split("/")
+        year = splits_2[3]
+        month = splits_2[4]
+        day = splits_2[5][:2]
+
+        res = {
+            "collection_num": collection_num,
+            "name": name,
+            "total_num": total_num,
+            "year": year,
+            "month": month,
+            "day": day,
+            "url_prefix": url_prefix,
+            "url_suffix": url_suffix,
+            "tag_names": tag_names,
+        }
+        logger.debug(f"合集信息：{res}")
+        return res
 
 
 async def download_worker(base_path, url_queue: asyncio.Queue):

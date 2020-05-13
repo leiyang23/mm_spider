@@ -101,10 +101,11 @@ class MMSpider:
         logger.info("合集信息已全部写入数据库")
 
     async def collection_worker(self, num_queue: asyncio.Queue):
+        session = aiohttp.ClientSession(headers=get_headers_1())
         while True:
             collection_num = await num_queue.get()
             logger.debug(f"{collection_num}开始。。")
-            res = await get_collection_base_data(collection_num)
+            res = await get_collection_base_data(session, collection_num)
             if res is None:  # 获取合集基本信息失败
                 logger.debug(f"获取合集信息失败：{collection_num}")
                 num_queue.task_done()
@@ -112,6 +113,8 @@ class MMSpider:
             self._inset_collection(res)
             logger.debug(f"{collection_num}结束。。")
             num_queue.task_done()
+            if num_queue.empty():
+                await session.close()
 
     async def update_files(self):
         # 同步本地图片
