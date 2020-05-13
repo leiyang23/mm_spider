@@ -1,17 +1,34 @@
-妹子图（mzitu.com）全站图片爬取，增量更新。  
-图片按照专辑保存，保留了专辑与标签的关联关系。
+# 妹子图（mzitu.com）增量爬取
+## 简介
+全站图片爬取，增量更新。  
+图片按照专辑保存，保留了图片合集与标签的关联关系。  
+主要依赖库：  
 - `asyncio`
 - `aiohttp`
-- `SQLAlchemy`
-- `sqlite`    
+- `SQLAlchemy`   
 
-主要特点：使用官方的`asyncio`库和第三方`aiohttp`进行异步爬取，可以自定义协程数量来控制爬取速度，
+**主要特点：** 使用官方的`asyncio`库和第三方`aiohttp`进行异步爬取，可以自定义协程数量来控制爬取速度，
 在不影响网站正常运行的前提下学习Python的异步编程。
 
-**使用：**  
-在命令行下，切换到文件目录，  
-首先根据`requirements.txt`配置环境：
-` pip install -r requirements.txt`  
+## 代码
+### 表结构    
+- `Collection` 合集表，用来记录图片合集的相关信息，是核心数据表。   
+- `Tag` 标签表，每个合集关联多个标签。   
+- `DownloadRecord` 数据获取记录表，记录合集数据和合集图片的获取记录，增量更新关键。
+
+### 核心逻辑
+核心逻辑封装在 spider.py 中的 `MMSpider` 这个类中。          
+主要分 3 步。
+1. `sync_from_meitu` 用来从网站获取合集信息，是    
+2. `craw_collection_data_by_dl_record` 根据第一步获取的合集编号爬取合集信息并入库。    
+3. `dl_img_by_dl_record` 根据第二步获取的合集信息进行下载图片。  
+
+这 3 步既可以按顺序执行，也可以单独执行，并没有强依赖关系。之间是通过数据库进行连接。      
+
+## 使用   
+首先根据`requirements.txt`配置环境：` pip install -r requirements.txt` 
+源码下 python spider.py 
+ 
 然后执行
 `python main.py "D:/mzitu"`     
 
