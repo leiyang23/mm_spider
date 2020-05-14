@@ -1,3 +1,5 @@
+import platform
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -11,7 +13,7 @@ DB_PATH = "///mm.db"
 class MMSpider:
     def __init__(self, base_path, ):
         self.num_for_craw = 2  # 网页爬取时并发
-        self.num_for_dl = 2  # 图片下载并发
+        self.num_for_dl = 3  # 图片下载并发
 
         if not os.path.exists(base_path):
             os.mkdir(base_path)
@@ -41,8 +43,7 @@ class MMSpider:
         old_collection_nums = {i.collection_num for i in self.session.query(DownloadRecord.collection_num).all()}
 
         update_collection_nums = new_collection_nums - old_collection_nums
-        logger.debug("新增数据：")
-        logger.debug(update_collection_nums)
+        logger.debug(f"新增数据：{len(update_collection_nums)} 条 合集")
 
         count = 0
         for collection_num in update_collection_nums:
@@ -67,10 +68,10 @@ class MMSpider:
         logger.debug(f"待下载合集准备完毕")
 
         tasks = []
-        for _ in range(self.num_for_craw):
+        for i in range(self.num_for_craw):
             task = asyncio.create_task(self.craw_collection_data(collection_num_queue))
             tasks.append(task)
-        logger.debug("合集爬虫任务启动")
+        logger.debug(f"合集爬虫任务启动，共有{collection_num_queue.qsize()}个合集待爬取")
 
         await collection_num_queue.join()
 
@@ -104,7 +105,6 @@ class MMSpider:
         """爬取合集数据"""
         while True:
             collection_num = await num_queue.get()
-            logger.debug(f"{collection_num}开始。。")
             res = await get_collection_base_data(collection_num)
             if res is None:  # 获取合集基本信息失败
                 logger.debug(f"获取合集信息失败：{collection_num}")
@@ -112,9 +112,9 @@ class MMSpider:
                 continue
 
             self.update_collection_status(res)
-            logger.debug(f"{collection_num}结束。。")
 
             num_queue.task_done()
+            logger.debug(f"当前剩余{num_queue.qsize()}")
 
     async def dl_collection_img(self, q: asyncio.Queue):
         """按照合集为单位进行下载图片"""
@@ -122,7 +122,7 @@ class MMSpider:
             collection_num, name, total_num, url_prefix, url_suffix = await q.get()
 
             url_list = list()
-            for i in range(1, int(total_num)+1):
+            for i in range(1, int(total_num) + 1):
                 num = "0" + str(i) if i < 10 else str(i)
                 url = url_prefix + num + url_suffix
                 url_list.append(url)
@@ -130,6 +130,7 @@ class MMSpider:
             await download_worker(self.base_path, name, url_list)
 
             # 合集图片下载完毕后，更新图片下载状态
+            logger.debug(f"合集 {collection_num} 下载完毕")
             self.update_dl_status(collection_num)
 
     def update_collection_status(self, res):
@@ -155,7 +156,7 @@ class MMSpider:
             {"status": 1})
 
         self.session.commit()
-        logger.debug(f"合集信息入库：{res}")
+        logger.debug(f"合集信息入库")
 
     def update_dl_status(self, collection_num):
         """更新图片下载状态"""
@@ -163,12 +164,16 @@ class MMSpider:
             {"dl_status": 1})
         self.session.commit()
 
+    async def _main(self):
+        await asyncio.gather(self.craw_collection_data_by_dl_record(), self.dl_img_by_dl_record())
+
     def main(self):
-        # self.sync_from_mzitu()
-        # asyncio.run(self.craw_collection_data_by_dl_record())
-        asyncio.run(self.dl_img_by_dl_record())
+        self.sync_from_mzitu()
+        asyncio.run(self._main())
 
 
 if __name__ == '__main__':
     # todo: 默认下载到磁盘剩余空间最大的盘根目录下的 mzitu 目录
-    MMSpider(base_path='D:/mzitu_test').main()
+    import os
+    os.environ
+    MMSpider(base_path='D:/mzitu').main()
