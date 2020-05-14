@@ -63,7 +63,7 @@ async def get_collection_base_data(collection_num, retry=3) -> Union[dict, None]
     http_session = get_session()
     for i in range(1, retry + 1):
         try:
-            resp = await asyncio.wait_for(http_session.get(collection_url), 5)
+            resp = await http_session.get(collection_url)
             if resp.status != 200:
                 logger.warning(f"error：获取合集{collection_num}失败，状态码：{resp.status}")
 
@@ -117,10 +117,13 @@ async def get_collection_base_data(collection_num, retry=3) -> Union[dict, None]
             continue
 
 
-async def download_worker(base_path, collection_name, url_list: list):
+async def collection_downloader(base_path, collection_name, url_list: list, retry=3):
     """ 异步图片下载器"""
     async with aiohttp.ClientSession(headers=dl_header()) as session:
         logger.info(f"开始下载合集图片：{collection_name}")
+
+        # 此合集下载失败的图片数量，若大于 10，返回None 合集下载失败
+        fail_count = 0
         for img_url in url_list:
             await asyncio.sleep(random.uniform(.5, 2.5))
 
@@ -134,20 +137,35 @@ async def download_worker(base_path, collection_name, url_list: list):
             if os.path.exists(file_path):
                 continue
 
-            try:
-                resp = await asyncio.wait_for(session.get(img_url), 10)
-                if resp.status != 200:
-                    logger.warning(f"error：下载限制，请更换IP地址,状态码：{resp.status}")
-                    continue
+            # 每张图片有 3 次下载机会，若全部失败，fail_count 加一
+            for i in range(1, retry+1):
+                try:
+                    resp = await session.get(img_url)
+                    if resp.status != 200:
+                        logger.warning(f"下载限制，状态码：{resp.status}")
 
-                with open(file_path, 'wb') as fd:
-                    while True:
-                        chunk = await resp.content.read(1024)
-                        if not chunk:
-                            break
-                        fd.write(chunk)
-                logger.debug(f"{file_name}已保存")
-                resp.close()
-            except asyncio.TimeoutError:
-                logger.warning(f"{img_url} -timeout")
-                continue
+                        if resp.status == 429:
+                            logger.info(f"触发网站反爬机制，睡眠20秒，重试-{i}")
+                            await asyncio.sleep(20)
+                            continue
+
+                    with open(file_path, 'wb') as fd:
+                        while True:
+                            chunk = await resp.content.read(1024)
+                            if not chunk:
+                                break
+                            fd.write(chunk)
+                    logger.debug(f"{file_name}已保存")
+                    resp.close()
+                    break
+
+                except asyncio.TimeoutError:
+                    logger.warning(f"{img_url} -timeout")
+                    continue
+            else:
+                fail_count += 1
+
+            if fail_count >= 10:
+                return False
+
+        return True
