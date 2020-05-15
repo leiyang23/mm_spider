@@ -1,5 +1,7 @@
 import logging
 
+debug = False
+
 user_agents = [
     "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.87 Safari/537.36",
     "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:6.0) Gecko/20100101 Firefox/6.0",
@@ -8,12 +10,16 @@ user_agents = [
 ]
 
 logger = logging.getLogger("logger")
-logger.setLevel(logging.DEBUG)
+if debug:
+    logger.setLevel(logging.DEBUG)
+else:
+    logger.setLevel(logging.INFO)
 
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.DEBUG)
 
-formatter_console = logging.Formatter("%(filename)s-%(levelname)s-%(lineno)s - %(message)s")
+formatter_console = logging.Formatter("%(asctime)s-%(filename)s-%(levelname)s-%(lineno)s - %(message)s",
+                                      datefmt='%Y-%m-%d %H:%M:%S')
 
 console_handler.setFormatter(formatter_console)
 

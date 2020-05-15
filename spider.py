@@ -1,5 +1,3 @@
-import platform
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -13,7 +11,7 @@ DB_PATH = "///mm.db"
 class MMSpider:
     def __init__(self, base_path, ):
         self.num_for_craw = 2  # 网页爬取时并发
-        self.num_for_dl = 3  # 图片下载并发
+        self.num_for_dl = 5  # 图片下载并发
 
         if not os.path.exists(base_path):
             os.mkdir(base_path)
@@ -183,5 +181,15 @@ class MMSpider:
 
 
 if __name__ == '__main__':
-    # todo: 默认下载到磁盘剩余空间最大的盘根目录下的 mzitu 目录
-    MMSpider(base_path='D:/mzitu_test')
+    import os
+    import sys
+
+    if len(sys.argv) == 1:
+        path = os.path.abspath("./")
+    else:
+        path = sys.argv[1]
+
+    if not os.path.exists(path):
+        os.mkdir(path)
+
+    MMSpider(base_path=path)
