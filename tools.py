@@ -2,13 +2,12 @@ import os
 import random
 import asyncio
 import aiohttp
-import httpx
 
 import requests
 from lxml import etree
 from typing import Union
 
-from setting import user_agents, logger
+from setting import user_agents, logger, invalid_chars_in_path
 
 
 def dl_header() -> dict:
@@ -128,9 +127,19 @@ async def collection_downloader(base_path, collection_name, url_list: list, retr
             await asyncio.sleep(random.uniform(.5, 2.5))
 
             file_name = img_url.split("/")[-1]
+
+            # 检查文件夹命名的格式
+            for char in invalid_chars_in_path:
+                if char in collection_name:
+                    collection_name = collection_name.replace(char, "")
             dir_path = os.path.join(base_path, collection_name)
+
             if not os.path.exists(dir_path):
-                os.mkdir(dir_path)
+                try:
+                    os.mkdir(dir_path)
+                except NotADirectoryError:
+                    os.mkdir(os.path.join(base_path, "unknown"))
+
             file_path = os.path.join(dir_path, file_name)
 
             # 如果已经下载就跳过

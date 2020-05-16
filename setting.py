@@ -1,6 +1,8 @@
 import logging
 
-debug = False
+debug = True
+# windows 下文件（夹）命名中的非法字符
+invalid_chars_in_path = ['*', '|', ':', '：', '?', '/', '<', '>', '"', '\\']
 
 user_agents = [
     "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.87 Safari/537.36",
